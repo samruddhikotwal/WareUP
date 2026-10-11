@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account - WEARUP</title>
+    <link rel="stylesheet" href="/static/register.css"></head>
+<body class="register-body">
+    <div class="register-wrapper">
+        <div class="register-hero">
+            <div class="hero-overlay">
+                <h2>WEARUP</h2>
+                <p>Discover trends in sarees, ethnic wear, and lifestyle collections.</p>
+            </div>
+        </div>
+
+        <div class="register-card">
+            <h2>Create Account</h2>
+            <p class="subtitle">Set up your delivery details for Cash on Delivery orders.</p>
+
+            {% if error %}
+                <p class="form-error">{{ error }}</p>
+            {% endif %}
+
+            <form action="/register" method="POST" class="styled-form" id="registerForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="full_name">Full Name</label>
+                    <input type="text" id="full_name" name="full_name" placeholder="Enter your full name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="name@gmail.com" required>
+                    <p class="field-hint">Use a full, valid email (e.g. name@gmail.com) — typos like "@gmail" without ".com" will be rejected.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <div class="otp-field-row">
+                        <input type="tel" id="phone" name="phone" placeholder="10-digit mobile number"
+                               pattern="[0-9]{10}" maxlength="10" title="Enter a 10-digit phone number"
+                               required {% if otp_enabled %}oninput="resetOtpState()"{% endif %}>
+                        {% if otp_enabled %}
+                        <button type="button" id="sendOtpBtn" class="otp-action-btn" onclick="sendOtp()">Send Code</button>
+                        {% endif %}
+                    </div>
+                    <p class="field-hint">Our delivery partner will use this to reach you.</p>
+
+                    {% if otp_enabled %}
+                    <div id="otpSection" class="otp-section" style="display: none;">
+                        <input type="text" id="otpInput" maxlength="6" placeholder="6-digit code" class="otp-code-input">
+                        <button type="button" id="verifyOtpBtn" class="otp-action-btn" onclick="verifyOtp()">Verify</button>
+                    </div>
+                    <p id="otpStatus" class="otp-status"></p>
+                    <input type="hidden" id="otpVerifiedFlag" value="false">
+                    {% else %}
+                    <p class="field-hint otp-disabled-hint">Phone verification isn't set up on this store yet.</p>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="pincode">Delivery Pincode</label>
+                    <input type="text" id="pincode" name="pincode" placeholder="e.g. 411014" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="address">Full Delivery Address</label>
+                    <textarea id="address" name="address" rows="3" placeholder="Flat No., House Name, Street Area" required></textarea>
+                </div>
+
+                <button type="submit" class="add-btn submit-btn">Save Address & Continue</button>
+            </form>
+            <br>
+            <p class="switch-link">Already have an account? <a href="/login">Log in</a></p>
+            <a href="/" class="back-link">← Return to Storefront</a>
+        </div>
+    </div>
+
+    {% if otp_enabled %}
+    <script>
+        let otpCooldownInterval = null;
+
+        function resetOtpState() {
+            document.getElementById('otpVerifiedFlag').value = 'false';
+            document.getElementById('otpSection').style.display = 'none';
+            document.getElementById('otpInput').value = '';
+            document.getElementById('otpInput').disabled = false;
+            document.getElementById('verifyOtpBtn').disabled = false;
+            setStatus('', '');
+        }
+
+        function setStatus(message, type) {
+            const status = document.getElementById('otpStatus');
+            status.innerText = message;
+            status.className = 'otp-status' + (type ? ' otp-status-' + type : '');
+        }
+
+        function startCooldown(seconds) {
+            const btn = document.getElementById('sendOtpBtn');
+            let remaining = seconds;
+            btn.disabled = true;
+            btn.innerText = `Resend (${remaining}s)`;
+            otpCooldownInterval = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    clearInterval(otpCooldownInterval);
+                    btn.disabled = false;
+                    btn.innerText = 'Resend Code';
+                } else {
+                    btn.innerText = `Resend (${remaining}s)`;
+                }
+            }, 1000);
+        }
+
+        async function sendOtp() {
+            const phone = document.getElementById('phone').value.trim();
+            const btn = document.getElementById('sendOtpBtn');
+
+            if (!/^\d{10}$/.test(phone)) {
+                setStatus('Please enter a valid 10-digit phone number first.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            const originalText = btn.innerText;
+            btn.innerText = 'Sending...';
+
+            try {
+                const res = await fetch('/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ phone })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('otpSection').style.display = 'flex';
+                    setStatus(data.message, 'success');
+                    startCooldown(60);
+                } else {
+                    setStatus(data.error, 'error');
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }
+            } catch (err) {
+                setStatus('Network error. Please try again.', 'error');
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        }
+
+        async function verifyOtp() {
+            const phone = document.getElementById('phone').value.trim();
+            const otp = document.getElementById('otpInput').value.trim();
+
+            if (!otp) {
+                setStatus('Please enter the code sent to your phone.', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch('/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ phone, otp })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    setStatus('✅ Phone number verified!', 'success');
+                    document.getElementById('otpVerifiedFlag').value = 'true';
+                    document.getElementById('otpInput').disabled = true;
+                    document.getElementById('verifyOtpBtn').disabled = true;
+                    if (otpCooldownInterval) clearInterval(otpCooldownInterval);
+                    document.getElementById('sendOtpBtn').style.display = 'none';
+                } else {
+                    setStatus(data.error, 'error');
+                }
+            } catch (err) {
+                setStatus('Network error. Please try again.', 'error');
+            }
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', function (e) {
+            if (document.getElementById('otpVerifiedFlag').value !== 'true') {
+                e.preventDefault();
+                setStatus('Please verify your phone number with the OTP before continuing.', 'error');
+                document.getElementById('phone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

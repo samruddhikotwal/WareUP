@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In - WEARUP</title>
+    <link rel="stylesheet" href="/static/register.css">
+</head>
+<body class="register-body">
+    <div class="register-wrapper">
+        <div class="register-hero">
+            <div class="hero-overlay">
+                <h2>WEARUP</h2>
+                <p>Welcome back! Log in to track your orders and check out faster.</p>
+            </div>
+        </div>
+
+        <div class="register-card">
+            <h2>Log In</h2>
+            <p class="subtitle">We'll text a one-time code to the phone number saved on your account.</p>
+
+            {% if not otp_ready %}
+                <p class="form-error">Login isn't available right now. Please try again later.</p>
+            {% else %}
+            <div class="styled-form">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="otp-field-row">
+                        <input type="email" id="email" placeholder="name@gmail.com" autocomplete="email">
+                        <button type="button" id="sendOtpBtn" class="otp-action-btn" onclick="sendLoginOtp()">Send Code</button>
+                    </div>
+
+                    <div id="otpSection" class="otp-section" style="display: none;">
+                        <input type="text" id="otpInput" maxlength="6" inputmode="numeric"
+                               autocomplete="one-time-code" placeholder="6-digit code" class="otp-code-input">
+                        <button type="button" id="verifyOtpBtn" class="otp-action-btn" onclick="verifyLoginOtp()">Verify &amp; Log In</button>
+                    </div>
+                    <p id="otpStatus" class="otp-status"></p>
+                </div>
+            </div>
+            {% endif %}
+
+            <p class="switch-link">New to WEARUP? <a href="/register">Create an account</a></p>
+            <a href="/" class="back-link">← Return to Storefront</a>
+        </div>
+    </div>
+
+    {% if otp_ready %}
+    <script>
+        const CSRF_TOKEN = {{ csrf_token()|tojson }};
+        const NEXT_URL = {{ next_url|tojson }};
+        let cooldownInterval = null;
+
+        function setStatus(message, type) {
+            const status = document.getElementById('otpStatus');
+            status.innerText = message;
+            status.className = 'otp-status' + (type ? ' otp-status-' + type : '');
+        }
+
+        async function postJson(url, body) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify(body)
+            });
+            return res.json();
+        }
+
+        function startCooldown(seconds) {
+            const btn = document.getElementById('sendOtpBtn');
+            let remaining = seconds;
+            if (cooldownInterval) clearInterval(cooldownInterval);
+            btn.disabled = true;
+            btn.innerText = `Resend (${remaining}s)`;
+            cooldownInterval = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    clearInterval(cooldownInterval);
+                    btn.disabled = false;
+                    btn.innerText = 'Resend Code';
+                } else {
+                    btn.innerText = `Resend (${remaining}s)`;
+                }
+            }, 1000);
+        }
+
+        async function sendLoginOtp() {
+            const email = document.getElementById('email').value.trim();
+            const btn = document.getElementById('sendOtpBtn');
+
+            if (!email) {
+                setStatus('Please enter your email address first.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            const originalText = btn.innerText;
+            btn.innerText = 'Sending...';
+
+            try {
+                const data = await postJson('/login/send-otp', { email });
+                if (data.success) {
+                    document.getElementById('otpSection').style.display = 'flex';
+                    setStatus(data.message, 'success');
+                    startCooldown(60);
+                    document.getElementById('otpInput').focus();
+                } else {
+                    setStatus(data.error, 'error');
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }
+            } catch (err) {
+                setStatus('Network error. Please try again.', 'error');
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        }
+
+        async function verifyLoginOtp() {
+            const email = document.getElementById('email').value.trim();
+            const otp = document.getElementById('otpInput').value.trim();
+
+            if (!otp) {
+                setStatus('Please enter the code sent to your phone.', 'error');
+                return;
+            }
+
+            try {
+                const data = await postJson('/login/verify', { email, otp, next: NEXT_URL });
+                if (data.success) {
+                    setStatus('✅ Logged in! Redirecting...', 'success');
+                    window.location.href = data.redirect || '/';
+                } else {
+                    setStatus(data.error, 'error');
+                }
+            } catch (err) {
+                setStatus('Network error. Please try again.', 'error');
+            }
+        }
+
+        document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLoginOtp(); });
+        document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyLoginOtp(); });
+    </script>
+    {% endif %}
+</body>
+</html>

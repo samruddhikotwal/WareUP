@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - All Orders</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin_orders.css') }}">
+</head>
+<body style="padding: 20px;">
+    <h2>All Customer Orders</h2>
+    <a href="{{ url_for('admin_panel') }}">← Back to Products</a> |
+    <a href="{{ url_for('admin_logout') }}">Logout Admin</a> |
+    <a href="/">Go to Website</a>
+
+    {% if order_groups %}
+        <div class="admin-orders-list">
+            {% for group in order_groups %}
+            <div class="admin-order-card">
+                <div class="admin-order-header">
+                    <div>
+                        <strong>Order #{{ group.order_group }}</strong>
+                        <span class="admin-order-date">{{ group.created_at }}</span>
+                    </div>
+                    <span class="admin-order-status status-{{ group.status | lower | replace(' ', '-') }}">{{ group.status }}</span>
+                </div>
+
+                <div class="admin-order-body">
+                    <div class="admin-order-items">
+                        <h4>Items</h4>
+                        <table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%;">
+                            <tr>
+                                <th>Product</th>
+                                <th>Size</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Est. Delivery</th>
+                            </tr>
+                            {% for item in group.lines %}
+                            <tr>
+                                <td>{{ item.title }}</td>
+                                <td>{{ item.size }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>₹{{ item.price }}</td>
+                                <td>{{ item.estimated_delivery }}</td>
+                            </tr>
+                            {% endfor %}
+                        </table>
+                        <p class="admin-order-total">Order Total: ₹{{ group.total | round(2) }}</p>
+                    </div>
+
+                    <div class="admin-order-customer">
+                        <h4>Customer &amp; Delivery</h4>
+                        <p><strong>{{ group.customer_name or 'Unknown' }}</strong></p>
+                        {% if group.customer_phone %}
+                            <p>📞 <a href="tel:{{ group.customer_phone }}">{{ group.customer_phone }}</a></p>
+                        {% else %}
+                            <p class="admin-no-phone">No phone number on file</p>
+                        {% endif %}
+                        {% if group.customer_email %}
+                            <p>✉️ {{ group.customer_email }}</p>
+                        {% endif %}
+                        <p>📍 {{ group.delivery_address }}{% if group.pincode %} — {{ group.pincode }}{% endif %}</p>
+
+                        <form action="{{ url_for('admin_update_order_status', order_group=group.order_group) }}"
+                              method="POST" class="status-update-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select name="status">
+                                {% for s in statuses %}
+                                    <option value="{{ s }}" {% if s == group.status %}selected{% endif %}>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit">Update Status</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p style="margin-top: 20px; color: #666;">No orders have been placed yet.</p>
+    {% endif %}
+</body>
+</html>

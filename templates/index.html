@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WEARUP - Online Fashion & Lifestyle</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <!-- Header / Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="brand-logo">WEARUP</a>
+
+            <!-- Dynamic Interactive Location Badge -->
+            <button class="location-badge-btn" onclick="openPincodeModal()">
+                📍 Deliver to <strong id="pincode-display">{{ session.get('pincode', 'Select Pincode') }}</strong> ✏️
+            </button>
+
+            <div class="nav-actions">
+    {% if user_logged_in %}
+        <!-- Logged-in Profile Menu -->
+        <div class="user-profile-dropdown">
+            <button class="profile-icon-btn">
+                <span class="user-avatar">👤</span>
+                <span class="user-name-label">{{ session.get('user_name', 'User') }}</span>
+            </button>
+
+            <div class="dropdown-content">
+                <div class="dropdown-header">
+                    <strong>{{ session.get('user_name', 'User') }}</strong>
+                    <p class="dropdown-address">📍 {{ session.get('address', 'Saved Address') }}</p>
+                    <p class="dropdown-pincode">Pincode: {{ session.get('pincode', '412207') }}</p>
+                </div>
+                <hr class="dropdown-divider">
+                <a href="/profile" class="dropdown-item">👤 My Profile</a>
+                <a href="/orders" class="dropdown-item">📦 My Orders</a>
+                <a href="/cart" class="dropdown-item">👜 My Bag</a>
+                <a href="/logout" class="dropdown-item logout-link">🚪 Logout</a>
+            </div>
+        </div>
+    {% else %}
+        <!-- Guest Profile Link -->
+        <a href="/login" class="guest-profile-link">
+            <span class="user-avatar">👤</span>
+            <span>Login / Register</span>
+        </a>
+    {% endif %}
+
+    <a href="/cart" class="cart-btn">👜 Bag <span id="cart-count" class="cart-count-badge">0</span></a>
+</div>
+        </div>
+    </header>
+
+    <!-- Category Filter Bar -->
+    <nav class="category-bar">
+        <a href="/" class="category-item">All Collection</a>
+        <a href="/?category=fashion" class="category-item">Women's Fashion</a>
+        <a href="/?category=homeliving" class="category-item">Home & Living</a>
+        <a href="/?category=beauty" class="category-item">Beauty</a>
+    </nav>
+
+    <!-- Banner -->
+    <section class="hero-banner">
+        <div class="banner-content">
+            <h2>Festive & Casual Elegance</h2>
+            <p>Up to 60% OFF on Top Picks</p>
+        </div>
+    </section>
+
+    <!-- Main Products Grid -->
+    <main class="store-container">
+        <h2 class="section-title">Trending Styles</h2>
+
+        <div class="product-grid">
+            {% if products %}
+                {% for product in products %}
+                <div class="product-card">
+
+                    <a href="/product/{{ product.id }}" class="product-image-box">
+                        <img src="{{ product.image_url }}" alt="{{ product.title }}">
+                    </a>
+
+                    <div class="product-info">
+                        <a href="/product/{{ product.id }}" style="text-decoration: none;">
+                            <h3 class="product-title">{{ product.title }}</h3>
+                        </a>
+
+                        <div class="price-details">
+                            <span class="current-price">₹{{ product.price }}</span>
+                            {% if product.original_price %}
+                                <span class="original-price">₹{{ product.original_price }}</span>
+                                <span class="discount-tag">{{ product.discount_percent }}% OFF</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="card-buttons">
+                            {% if product.sizes and ',' in product.sizes %}
+                            <button class="add-to-cart-btn" onclick="window.location.href='/product/{{ product.id }}'">
+                                Select Size
+                            </button>
+                            {% else %}
+                            <button class="add-to-cart-btn" onclick="addToBag({{ product.id }}, '{{ product.title }}', {{ product.price }}, '{{ product.image_url }}')">
+                                Add to Bag
+                            </button>
+                            <button class="add-to-cart-btn buy-now-card-btn" onclick="buyNowHome({{ product.id }}, '{{ product.title }}', {{ product.price }}, '{{ product.image_url }}')">
+                                Buy Now
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="grid-column: 1 / -1; text-align: center; color: #666; margin: 40px 0;">No products found in this category.</p>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Pincode Modal Popup -->
+    <div id="pincodeModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <h3>Enter Delivery Pincode</h3>
+            <p>Check product availability and delivery options for your location.</p>
+            <input type="text" id="pincodeInput" maxlength="6" placeholder="e.g., 412207" class="modal-input">
+            <div class="modal-actions">
+                <button onclick="savePincode()" class="modal-save-btn">Save Pincode</button>
+                <button onclick="closePincodeModal()" class="modal-close-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+    <script>
+        function openPincodeModal() {
+            document.getElementById('pincodeModal').style.display = 'flex';
+        }
+
+        function closePincodeModal() {
+            document.getElementById('pincodeModal').style.display = 'none';
+        }
+
+        function savePincode() {
+            const inputVal = document.getElementById('pincodeInput').value.trim();
+            if (inputVal.length === 6 && !isNaN(inputVal)) {
+                document.getElementById('pincode-display').innerText = inputVal;
+                localStorage.setItem('userPincode', inputVal);
+                closePincodeModal();
+            } else {
+                alert('Please enter a valid 6-digit postal code.');
+            }
+        }
+
+        function buyNowHome(id, title, price, image) {
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            let existingItem = cart.find(item => item.id === id);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({
+                    id: id,
+                    title: title,
+                    price: price,
+                    image: image,
+                    quantity: 1
+                });
+            }
+            localStorage.setItem('cart', JSON.stringify(cart));
+            window.location.href = '/cart';
+        }
+    </script>
+</body>
+</html>

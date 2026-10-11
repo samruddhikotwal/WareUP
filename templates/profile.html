@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - WEARUP</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/profile.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="brand-logo">WEARUP</a>
+            <div class="nav-actions">
+                <a href="/" class="nav-link">← Continue Shopping</a>
+                <a href="/cart" class="cart-btn">👜 Bag</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="profile-container">
+        <h2>My Profile</h2>
+
+        {% if success %}
+            <p class="profile-success">{{ success }}</p>
+        {% endif %}
+        {% if error %}
+            <p class="profile-error">{{ error }}</p>
+        {% endif %}
+
+        <div class="profile-card">
+            <div class="profile-avatar-row">
+                <div class="profile-avatar">👤</div>
+                <div>
+                    <h3>{{ user.full_name }}</h3>
+                    <p class="profile-email">{{ user.email }}</p>
+                </div>
+            </div>
+
+            <form action="/profile/update" method="POST" class="styled-form profile-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="full_name">Full Name</label>
+                    <input type="text" id="full_name" name="full_name" value="{{ user.full_name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" value="{{ user.email }}" disabled>
+                    <p class="field-hint">Email can't be changed here.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" value="{{ user.phone or '' }}" pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
+                    <p class="field-hint">Used by our delivery partner to reach you.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="pincode">Delivery Pincode</label>
+                    <input type="text" id="pincode" name="pincode" value="{{ user.pincode }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="address">Full Delivery Address</label>
+                    <textarea id="address" name="address" rows="3" required>{{ user.address }}</textarea>
+                </div>
+
+                <button type="submit" class="add-btn submit-btn">Save Changes</button>
+            </form>
+
+            <div class="profile-footer">
+                <a href="/orders" class="profile-link">📦 My Orders</a>
+                <a href="/cart" class="profile-link">👜 View My Bag</a>
+                <a href="/logout" class="profile-link logout-link">🚪 Logout</a>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

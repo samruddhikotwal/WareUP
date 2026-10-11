@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - WEARUP</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/orders.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="brand-logo">WEARUP</a>
+            <div class="nav-actions">
+                <a href="/" class="nav-link">← Continue Shopping</a>
+                <a href="/cart" class="cart-btn">👜 Bag</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="orders-container">
+        <h2>My Orders</h2>
+
+        {% if request.args.get('placed') %}
+            <p class="order-placed-banner">🎉 Your order was placed successfully!</p>
+        {% endif %}
+
+        {% if order_groups %}
+            <div class="orders-list">
+                {% for group in order_groups %}
+                <div class="order-group-card">
+                    <div class="order-group-header">
+                        <div>
+                            <span class="order-id">Order #{{ group.order_group }}</span>
+                            <span class="order-date">{{ group.created_at }}</span>
+                        </div>
+                        <span class="order-status status-{{ group.status | lower | replace(' ', '-') }}">{{ group.status }}</span>
+                    </div>
+
+                    <div class="order-items">
+                        {% for item in group.lines %}
+                        <div class="order-item-row">
+                            <div class="order-item-main">
+                                <p class="order-item-title">{{ item.title }}</p>
+                                <p class="order-item-meta">Size: {{ item.size }} &nbsp;•&nbsp; Qty: {{ item.quantity }}</p>
+                                <p class="order-item-delivery">🚚 Estimated delivery: {{ item.estimated_delivery }}</p>
+                            </div>
+                            <div class="order-item-price">₹{{ (item.price * item.quantity) | round(2) }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="order-group-footer">
+                        <div class="order-address">
+                            📍 Delivering to: {{ group.delivery_address }}
+                            {% if group.pincode %} — {{ group.pincode }}{% endif %}
+                            {% if group.status == 'Placed' %}
+                                <a href="#" class="change-address-link" onclick="toggleAddressForm('{{ group.order_group }}'); return false;">Change</a>
+                            {% endif %}
+                        </div>
+                        <div class="order-total">Total: ₹{{ group.total | round(2) }}</div>
+                    </div>
+
+                    {% if group.status == 'Placed' %}
+                    <form action="/orders/{{ group.order_group }}/update-address" method="POST"
+                          class="address-edit-form" id="address-form-{{ group.order_group }}" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label>New Delivery Address</label>
+                            <textarea name="address" rows="2" required>{{ group.delivery_address }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>New Pincode</label>
+                            <input type="text" name="pincode" value="{{ group.pincode }}" required>
+                        </div>
+                        <button type="submit" class="address-save-btn">Save New Address</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-orders-box">
+                <p>You haven't placed any orders yet.</p>
+                <a href="/" class="shop-now-btn">Explore Products</a>
+            </div>
+        {% endif %}
+    </main>
+
+    <script>
+        function toggleAddressForm(orderGroup) {
+            const form = document.getElementById('address-form-' + orderGroup);
+            if (form) {
+                form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none';
+            }
+        }
+    </script>
+
+</body>
+</html>

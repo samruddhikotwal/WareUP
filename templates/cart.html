@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Bag - WEARUP</title>
+    <link rel="stylesheet" href="/static/cart.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="brand-logo">WEARUP</a>
+            <a href="/" class="nav-link">← Continue Shopping</a>
+        </div>
+    </header>
+
+    <main class="cart-container">
+        <h2>Your Shopping Bag (<span id="cart-total-items">0</span>)</h2>
+
+        <div class="cart-layout">
+            <!-- Left: List of Cart Items with Details -->
+            <div id="cart-items-list" class="cart-items-section">
+                <!-- Rendered dynamically by JavaScript -->
+            </div>
+
+            <!-- Right: Order Summary -->
+            <div class="summary-section">
+                <h3>Order Summary</h3>
+                <div class="summary-row">
+                    <span>Total MRP</span>
+                    <span id="summary-mrp">₹0</span>
+                </div>
+                <div class="summary-row">
+                    <span>Delivery Fee</span>
+                    <span style="color: #2e7d32; font-weight: 600;">FREE</span>
+                </div>
+                <hr>
+                <div class="summary-row total-row">
+                    <span>Total Amount</span>
+                    <span id="summary-total">₹0</span>
+                </div>
+
+                {% if user_logged_in %}
+                    <div class="address-preview">
+                        <p><strong>Deliver to:</strong></p>
+                        <p>{{ user_address if user_address else "Saved Address" }}</p>
+                    </div>
+                    <button class="checkout-btn" onclick="placeOrder()">Place Order</button>
+                {% else %}
+                    <p class="login-prompt">Please log in or register to complete your purchase.</p>
+                    <a href="/login?next=/cart" class="checkout-btn login-redirect-btn">Log In to Order</a>
+                    <a href="/register" class="checkout-btn login-redirect-btn" style="margin-top: 8px; background: #ffffff; color: #d81b60; border: 1px solid #d81b60;">New here? Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/script.js"></script>
+    <script>
+        function renderCartPage() {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const itemsContainer = document.getElementById('cart-items-list');
+            const totalItemsBadge = document.getElementById('cart-total-items');
+            const mrpElement = document.getElementById('summary-mrp');
+            const totalElement = document.getElementById('summary-total');
+
+            if (cart.length === 0) {
+                itemsContainer.innerHTML = `
+                    <div class="empty-cart-box">
+                        <p>Your shopping bag is empty.</p>
+                        <a href="/" class="shop-now-btn">Explore Products</a>
+                    </div>
+                `;
+                totalItemsBadge.innerText = "0";
+                mrpElement.innerText = "₹0";
+                totalElement.innerText = "₹0";
+                return;
+            }
+
+            let html = '';
+            let totalAmount = 0;
+            let itemCount = 0;
+
+            cart.forEach((item, index) => {
+                const itemTotal = item.price * item.quantity;
+                totalAmount += itemTotal;
+                itemCount += item.quantity;
+                const sizeLabel = item.size ? item.size : 'Free Size';
+
+                html += `
+                    <div class="cart-item-card">
+                        <img src="${item.image}" alt="${item.title}" class="cart-item-img">
+                        <div class="cart-item-details">
+                            <h3 class="cart-item-title">${item.title}</h3>
+                            <p class="cart-item-price">₹${item.price} each &nbsp;•&nbsp; Size: <strong>${sizeLabel}</strong></p>
+                            <div class="quantity-controls">
+                                <button onclick="changeQty(${index}, -1)">-</button>
+                                <span>${item.quantity}</span>
+                                <button onclick="changeQty(${index}, 1)">+</button>
+                            </div>
+                        </div>
+                        <div class="cart-item-actions">
+                            <span class="item-subtotal">₹${itemTotal}</span>
+                            <button onclick="removeItem(${index})" class="remove-btn">🗑️ Remove</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            itemsContainer.innerHTML = html;
+            totalItemsBadge.innerText = itemCount;
+            mrpElement.innerText = `₹${totalAmount}`;
+            totalElement.innerText = `₹${totalAmount}`;
+        }
+
+        function changeQty(index, change) {
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            if (cart[index]) {
+                cart[index].quantity += change;
+                if (cart[index].quantity <= 0) {
+                    cart.splice(index, 1);
+                }
+            }
+            localStorage.setItem('cart', JSON.stringify(cart));
+            renderCartPage();
+            updateCartCount();
+        }
+
+        function removeItem(index) {
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            cart.splice(index, 1);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            renderCartPage();
+            updateCartCount();
+        }
+
+        async function placeOrder() {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            if (cart.length === 0) return;
+
+            const btn = document.querySelector('.checkout-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = 'Placing order...';
+            }
+
+            try {
+                const response = await fetch('/place-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ items: cart })
+                });
+
+                if (response.status === 401) {
+                    // Session expired / not logged in — send them to register/login
+                    window.location.href = '/login?next=/cart';
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.removeItem('cart');
+                    window.location.href = '/orders?placed=1';
+                } else {
+                    alert(data.message || 'Something went wrong placing your order. Please try again.');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerText = 'Place Order';
+                    }
+                }
+            } catch (err) {
+                alert('Network error while placing your order. Please check your connection and try again.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Place Order';
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', renderCartPage);
+    </script>
+</body>
+</html>

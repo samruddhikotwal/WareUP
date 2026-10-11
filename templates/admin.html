@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard - Manage Products</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body style="padding: 20px;">
+    <h2>Admin Dashboard - Product Management</h2>
+    <a href="{{ url_for('admin_logout') }}">Logout Admin</a> |
+    <a href="/">Go to Website</a> |
+    <a href="{{ url_for('admin_orders') }}">📦 View Orders{% if pending_orders %} ({{ pending_orders }} new){% endif %}</a>
+
+    <h3>Add New Product</h3>
+    <form action="/admin/add" method="POST" class="admin-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="title" placeholder="Product Title" required>
+        <select name="category">
+            <option value="fashion">Fashion</option>
+            <option value="beauty">Beauty</option>
+            <option value="homeliving">Home Living</option>
+        </select>
+        <input type="number" name="price" placeholder="Selling Price (₹)" step="0.01" required>
+        <input type="number" name="original_price" placeholder="Original Price (₹)" step="0.01" required>
+        <input type="text" name="image_url" placeholder="Image URL / Static Path" required>
+        <button type="submit">Add Product</button>
+    </form>
+
+    <h3>Existing Products</h3>
+    <table border="1" cellpadding="8" style="border-collapse: collapse; width: 100%;">
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Original Price</th>
+            <th>Discount</th>
+            <th>Action</th>
+        </tr>
+        {% for p in products %}
+        <tr>
+            <td>{{ p.id }}</td>
+            <td>{{ p.title }}</td>
+            <td>{{ p.category }}</td>
+            <td>₹{{ p.price }}</td>
+            <td>₹{{ p.original_price }}</td>
+            <td>{{ p.discount_percent }}%</td>
+            <td>
+                <form action="/admin/delete/{{ p.id }}" method="POST" style="display:inline"
+                      onsubmit="return confirm('Delete this item?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

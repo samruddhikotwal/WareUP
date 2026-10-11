@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ product.title }} - WEARUP</title>
+    <link rel="stylesheet" href="/static/product_detail.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="brand-logo">WEARUP</a>
+            <a href="/cart" class="cart-btn">👜 Bag</a>
+        </div>
+    </header>
+
+    <main class="detail-container">
+        <div class="product-layout">
+            <!-- Left: Large Image View -->
+            <div class="image-gallery">
+                <img src="{{ product.image_url }}" alt="{{ product.title }}" class="main-image">
+            </div>
+
+            <!-- Right: Product Information & Actions -->
+            <div class="info-section">
+                <span class="category-tag">{{ product.category | capitalize }}</span>
+                <h1 class="title">{{ product.title }}</h1>
+
+                <!-- Rating -->
+                <div class="rating-row">
+                    <span class="rating-badge">{{ avg_rating }} ★</span>
+                    <a href="#reviews" class="review-count-link">{{ review_count }} review{{ 's' if review_count != 1 else '' }}</a>
+                </div>
+
+                <div class="price-row">
+                    <span class="current-price">₹{{ product.price }}</span>
+                    {% if product.original_price %}
+                        <span class="original-price">₹{{ product.original_price }}</span>
+                        <span class="discount-badge">{{ product.discount_percent }}% OFF</span>
+                    {% endif %}
+                </div>
+                <p class="tax-note">Inclusive of all taxes</p>
+
+                <!-- Size Selector -->
+                {% if size_list %}
+                <div class="size-section">
+                    <p class="size-label">Select Size</p>
+                    <div class="size-options" id="sizeOptions">
+                        {% for size in size_list %}
+                            <button type="button" class="size-btn" data-size="{{ size }}" onclick="selectSize(this)">{{ size }}</button>
+                        {% endfor %}
+                    </div>
+                    <p class="size-warning" id="sizeWarning" style="display: none;">Please select a size before continuing.</p>
+                </div>
+                {% endif %}
+
+                <!-- Delivery Info -->
+                <div class="delivery-box">
+                    <p class="delivery-line">🚚 <strong>Delivery by {{ delivery_date }}</strong></p>
+                    {% if user_logged_in %}
+                        <p class="delivery-address">
+                            📍 Deliver to: {{ delivery_address }}
+                            {% if delivery_pincode %} — {{ delivery_pincode }}{% endif %}
+                            <a href="/profile" class="change-address-link">Change</a>
+                        </p>
+                    {% else %}
+                        <p class="delivery-address">
+                            📍 <a href="/register" class="change-address-link">Add a delivery address</a> to see accurate delivery details.
+                        </p>
+                    {% endif %}
+                </div>
+
+                <hr class="divider">
+
+                <div class="description-box">
+                    <h3>Product Highlights</h3>
+                    <p>{{ product.description if product.description else "Premium quality fabric, elegant design, perfect for special occasions and daily wear." }}</p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="add-bag-btn" onclick="handleAddToBag()">
+                        👜 Add to Bag
+                    </button>
+
+                    <button class="buy-now-btn" onclick="handleBuyNow()">
+                        ⚡ Buy Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reviews Section -->
+        <section id="reviews" class="reviews-section">
+            <h3>Ratings &amp; Reviews <span class="reviews-heading-count">({{ review_count }})</span></h3>
+
+            {% if reviews %}
+                <div class="reviews-list">
+                    {% for review in reviews %}
+                    <div class="review-card">
+                        <div class="review-top">
+                            <span class="review-rating">{{ review.rating }} ★</span>
+                            <span class="review-name">{{ review.reviewer_name }}</span>
+                        </div>
+                        {% if review.comment %}
+                            <p class="review-comment">{{ review.comment }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-reviews">No reviews yet for this product.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <script src="/static/script.js"></script>
+    <script>
+        let selectedSize = {% if size_list %}null{% else %}"Free Size"{% endif %};
+        const hasSizes = {{ 'true' if size_list else 'false' }};
+
+        function selectSize(btn) {
+            document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('size-btn-active'));
+            btn.classList.add('size-btn-active');
+            selectedSize = btn.dataset.size;
+            document.getElementById('sizeWarning').style.display = 'none';
+        }
+
+        function ensureSizeSelected() {
+            if (hasSizes && !selectedSize) {
+                document.getElementById('sizeWarning').style.display = 'block';
+                document.getElementById('sizeOptions').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            }
+            return true;
+        }
+
+        function handleAddToBag() {
+            if (!ensureSizeSelected()) return;
+            addToBag({{ product.id }}, '{{ product.title }}', {{ product.price }}, '{{ product.image_url }}', selectedSize);
+        }
+
+        function handleBuyNow() {
+            if (!ensureSizeSelected()) return;
+            addToBag({{ product.id }}, '{{ product.title }}', {{ product.price }}, '{{ product.image_url }}', selectedSize);
+            window.location.href = '/cart';
+        }
+    </script>
+</body>
+</html>
